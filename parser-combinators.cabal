@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0330f6479464e5ffbbb1589d96011a9a3c47821ba74b14434ee6d16e3e138712
+-- hash: 431ab4fb1b73226f52fcb1b718332fbbedb7a2139aaf244e7c3dbeb952b40bc8
 
 name:           parser-combinators
 version:        0.1.0.0
@@ -35,6 +35,8 @@ library
       src
   build-depends:
       base >=4.7 && <5
+    , containers
+    , text
   default-language: Haskell2010
 
 executable parser-combinators-exe
@@ -46,7 +48,9 @@ executable parser-combinators-exe
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , containers
     , parser-combinators
+    , text
   default-language: Haskell2010
 
 test-suite parser-combinators-test
@@ -59,5 +63,7 @@ test-suite parser-combinators-test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , containers
     , parser-combinators
+    , text
   default-language: Haskell2010
