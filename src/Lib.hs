@@ -1,6 +1,13 @@
-module Lib
-    ( someFunc
-    ) where
+{-# LANGUAGE OverloadedStrings #-}
 
-someFunc :: IO ()
-someFunc = putStrLn "someFunc"
+module Lib
+  ( mainFunc,
+  )
+where
+
+import qualified Data.Text as T
+import Parser
+import Text.Printf (printf)
+
+mainFunc :: IO ()
+mainFunc = putStrLn ""
