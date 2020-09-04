@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 431ab4fb1b73226f52fcb1b718332fbbedb7a2139aaf244e7c3dbeb952b40bc8
+-- hash: 71f3ca8abf5da7454836ff89392289ab895d955597e20575edd7257de0129f98
 
 name:           parser-combinators
 version:        0.1.0.0
@@ -29,6 +29,7 @@ library
   exposed-modules:
       Lib
       Parser
+      Primitives
   other-modules:
       Paths_parser_combinators
   hs-source-dirs:
