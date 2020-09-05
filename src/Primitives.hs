@@ -32,22 +32,52 @@ satisfy predicate = Parser $ \s ->
         [] -> Nothing
         _ -> Just (T.pack t, T.pack rest)
 
+-- | Creates a parser that parses a character if and only if the provided predicate holds
+--
+-- This can be utilized as a building block for creating `Parser Char`s with different requirements
+parseCharIf :: (Char -> Bool) -> Parser Char
+parseCharIf predicate = Parser $ \s ->
+  case T.uncons s of
+    Just (c, cs) | predicate c -> Just (c, cs)
+    _ -> Nothing
+
 -- TODO: Implement parsing of floating point numbers
 jsonNumber :: Parser JsonVal
 jsonNumber = f <$> (satisfy isDigit)
   where
     f s = JsonNumber (read $ T.unpack s) Nothing
 
-charP :: Char -> Parser Char
-charP ch = Parser fn
-  where
-    fn s =
-      case T.uncons s of
-        Just (c, cs) | c == ch -> Just (c, cs)
-        _ -> Nothing
+literal :: Parser T.Text
+literal = satisfy (/= '"')
 
-stringP :: T.Text -> Parser [Char]
-stringP s = (sequenceA . map charP) $ T.unpack s
+-- | Parses JSON strings (no support for escaping yet)
+jsonString :: Parser JsonVal
+jsonString =
+  JsonString <$> (charP '"' *> (T.pack <$> many (escapeChar <|> basicChar)) <* charP '"')
+
+-- | Parses escape characters
+--
+-- NOTE: No support for unicode
+escapeChar :: Parser Char
+escapeChar =
+  ('\\' <$ stringP "\\\\")
+    <|> ('"' <$ stringP "\\\"") -- The `<$` function essentially partially injects the left value to
+    <|> ('\n' <$ stringP "\\n") -- to the right Functor. The remaining stream is not advanced, the value
+    <|> ('\b' <$ stringP "\\b") -- is simply reinterpreted.
+    <|> ('/' <$ stringP "\\/")
+    <|> ('\f' <$ stringP "\\f")
+    <|> ('\r' <$ stringP "\\r")
+    <|> ('\t' <$ stringP "\\t")
+
+-- | Parses all basic characters except backslash and quotes
+basicChar :: Parser Char
+basicChar = parseCharIf (\c -> (c /= '"' && c /= '\\'))
+
+charP :: Char -> Parser Char
+charP ch = parseCharIf (== ch)
+
+stringP :: T.Text -> Parser T.Text
+stringP s = T.pack <$> ((sequenceA . map charP) $ T.unpack s)
 
 jsonNull :: Parser JsonVal
 jsonNull = (\_ -> JsonNull) <$> stringP "null"
@@ -58,12 +88,3 @@ jsonBool = f <$> (stringP "true" <|> stringP "false")
     f a = case a of
       "true" -> JsonBool True
       "false" -> JsonBool False
-
--- A test parser
-digit :: Parser Int
-digit = Parser $ \s ->
-  case T.uncons s of
-    Nothing -> Nothing
-    Just (c, cs) -> case readMaybe [c] of
-      Just x -> Just (x, cs)
-      Nothing -> Nothing
