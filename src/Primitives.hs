@@ -20,9 +20,11 @@ data JsonVal
   | JsonObj (M.Map T.Text JsonVal)
   deriving (Eq, Show)
 
+-- | The main JSON value parser capable of parsing every valid JSON value
 jsonVal :: Parser JsonVal
-jsonVal = jsonNumber <|> jsonNull <|> jsonBool
+jsonVal = jsonNumber <|> jsonNull <|> jsonBool <|> jsonString <|> jsonArray <|> jsonObj
 
+-- | Creates a parser that parses pretty much any list of characters that satisfy the given predicate
 satisfy :: (Char -> Bool) -> Parser T.Text
 satisfy predicate = Parser $ \s ->
   let (t, rest) = span predicate $ T.unpack s
@@ -42,18 +44,56 @@ parseCharIf predicate = Parser $ \s ->
     _ -> Nothing
 
 -- TODO: Implement parsing of floating point numbers
+
+-- | Parses JSON numbers
+--
+-- NOTE: No support for floating point numbers yet
 jsonNumber :: Parser JsonVal
 jsonNumber = f <$> (satisfy isDigit)
   where
     f s = JsonNumber (read $ T.unpack s) Nothing
 
-literal :: Parser T.Text
-literal = satisfy (/= '"')
+-- | Parses almost all characters including escaped ones excluding plain quotation marks (not escaped)
+stringVal :: Parser T.Text
+stringVal = T.pack <$> many (escapeChar <|> basicChar)
 
 -- | Parses JSON strings (no support for escaping yet)
 jsonString :: Parser JsonVal
 jsonString =
-  JsonString <$> (charP '"' *> (T.pack <$> many (escapeChar <|> basicChar)) <* charP '"')
+  JsonString <$> (charP '"' *> stringVal <* charP '"')
+
+-- | Parses whitespace characters
+ws :: Parser Char
+ws = parseCharIf (== ' ')
+
+-- | A parser that parses comma separators
+--
+-- A basic example would be something like: ", " or " ,  "
+commaSep :: Parser Char
+commaSep = many ws *> charP ',' <* many ws
+
+-- | Parses JSON arrays
+jsonArray :: Parser JsonVal
+jsonArray =
+  JsonArray
+    <$> (charP '[' *> many ws *> values <* many ws <* charP ']')
+  where
+    values = (:) <$> (elem) <*> many (commaSep *> many ws *> elem)
+    elem = jsonVal <* many ws
+
+-- | Parses JSON objects
+jsonObj :: Parser JsonVal
+jsonObj =
+  -- The Map is created using the `fromList` function which essentially just takes a list of key value
+  -- pairs and constructs a map from it.
+  JsonObj
+    <$> (M.fromList <$> (charP '{' *> many ws *> (keyValuePairs <|> pure []) <* many ws <* charP '}'))
+  where
+    -- A `pair` simply just denotes a single key value pair. eg: `(key, value)`
+    pair =
+      (\k _ v -> (k, v)) <$> (charP '"' *> stringVal <* charP '"') <*> (many ws *> charP ':' <* many ws) <*> jsonVal
+    -- `keyValuePairs` represents a list of key value pairs. eg: `[(k1, v1), (k2, v2)]`
+    keyValuePairs = (:) <$> pair <*> many (commaSep *> many ws *> pair)
 
 -- | Parses escape characters
 --
@@ -73,15 +113,19 @@ escapeChar =
 basicChar :: Parser Char
 basicChar = parseCharIf (\c -> (c /= '"' && c /= '\\'))
 
+-- | Creates a parser that can only parse the character that the creator function is provided with
 charP :: Char -> Parser Char
 charP ch = parseCharIf (== ch)
 
+-- | Creates a parser than only parses the string that the creator function is provided with
 stringP :: T.Text -> Parser T.Text
 stringP s = T.pack <$> ((sequenceA . map charP) $ T.unpack s)
 
+-- | Parses null values
 jsonNull :: Parser JsonVal
 jsonNull = (\_ -> JsonNull) <$> stringP "null"
 
+-- | Parses boolean values
 jsonBool :: Parser JsonVal
 jsonBool = f <$> (stringP "true" <|> stringP "false")
   where
