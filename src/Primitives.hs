@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Primitives () where
+module Primitives (jsonVal) where
 
 import Control.Applicative
 import Data.Char (isDigit)
@@ -43,14 +43,19 @@ parseCharIf predicate = Parser $ \s ->
     Just (c, cs) | predicate c -> Just (c, cs)
     _ -> Nothing
 
--- TODO: Implement parsing of floating point numbers
-
 -- | Parses JSON numbers
 --
--- NOTE: No support for floating point numbers yet
+-- Supports floating point numbers and negative numbers.
 jsonNumber :: Parser JsonVal
-jsonNumber = f <$> (satisfy isDigit) <*> ((charP '.' *> satisfy isDigit) <|> pure T.empty)
+jsonNumber = f <$> intPart <*> fractPart
   where
+    -- We check to see if the passed in JSON number is negative. If not, we alternate to just a Parser
+    -- that parses positive integers.
+    intPart = ((\a b -> T.pack $ a : T.unpack b) <$> charP '-' <*> satisfy isDigit) <|> satisfy isDigit
+    -- This parser will TRY to parse the fractional part of the provided JSON number. If the attempt
+    -- yielded `Nothing` (meaning there is no fractional part) it will instead default to a pure empty
+    -- text value.
+    fractPart = (charP '.' *> satisfy isDigit) <|> pure T.empty
     -- We have to prepend the fractional part with "0." so that the double is parsed correctly
     f int fr = JsonNumber (read $ T.unpack int) ((readMaybe $ "0." ++ T.unpack fr) :: Maybe Double)
 
