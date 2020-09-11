@@ -12,7 +12,7 @@ import Text.Read (readMaybe)
 data JsonVal
   = -- Maybe indicates the fractional part of the number. This will obviously be `Nothing` if it's
     -- just a plain integer.
-    JsonNumber Integer (Maybe Integer)
+    JsonNumber Integer (Maybe Double)
   | JsonBool Bool
   | JsonNull
   | JsonString T.Text
@@ -49,9 +49,10 @@ parseCharIf predicate = Parser $ \s ->
 --
 -- NOTE: No support for floating point numbers yet
 jsonNumber :: Parser JsonVal
-jsonNumber = f <$> (satisfy isDigit)
+jsonNumber = f <$> (satisfy isDigit) <*> ((charP '.' *> satisfy isDigit) <|> pure T.empty)
   where
-    f s = JsonNumber (read $ T.unpack s) Nothing
+    -- We have to prepend the fractional part with "0." so that the double is parsed correctly
+    f int fr = JsonNumber (read $ T.unpack int) ((readMaybe $ "0." ++ T.unpack fr) :: Maybe Double)
 
 -- | Parses almost all characters including escaped ones excluding plain quotation marks (not escaped)
 stringVal :: Parser T.Text
